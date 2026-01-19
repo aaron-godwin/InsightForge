@@ -1,6 +1,6 @@
 import streamlit as st
-from src.load_data import load_data_and_kb
-from src.visualization import InsightVisualizer
+from load_data import load_data_and_kb
+from visualization import InsightVisualizer
 
 st.set_page_config(page_title="InsightForge BI Assistant", layout="wide")
 
