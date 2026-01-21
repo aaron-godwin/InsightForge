@@ -341,7 +341,21 @@ class InsightRetriever:
             return self.get_trend_stats()
 
         # Anomaly detection
-        if "anomaly" in query or "outlier" in query or "unusual" in query:
+        if (
+            "anomaly" in query
+            or "anomalies" in query
+            or "outlier" in query
+            or "outliers" in query
+            or "unusual" in query
+            or "unexpected" in query
+            or "irregular" in query
+            or ("deviate" in query and "month" in query)
+            or ("deviates" in query and "month" in query)
+            or ("deviation" in query and "month" in query)
+            or ("significantly" in query and "month" in query)
+            or ("norm" in query and "month" in query)
+            or ("stand out" in query and "month" in query)
+        ):
             return self.get_anomaly_stats()
 
         # Forecasting
