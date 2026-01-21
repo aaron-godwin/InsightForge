@@ -26,7 +26,13 @@ def run_query(question: str) -> str:
     stats = retriever.retrieve(question)
 
     # Step 2 — Build prompt
-    prompt = build_insight_prompt(question, stats)
+    stats = retriever.retrieve(question)
+
+    # Forecasting branch
+    if isinstance(stats, dict) and stats.get("type") == "forecast_context":
+        prompt = build_forecast_prompt(question, stats)
+    else:
+        prompt = build_insight_prompt(question, stats)
 
     # Step 3 — Call Groq LLM
     try:
