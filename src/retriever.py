@@ -103,10 +103,13 @@ class InsightRetriever:
                 return self.get_region_stats(region)
 
         # Age queries (Customer_Age)
-        if "Customer_Age" in self.df.columns:
-            for age in self.df["Customer_Age"].dropna().unique():
-                if str(age).lower() in query:
-                    return self.get_age_stats(age)
+        if "age" in query or "ages" in query or "age group" in query:
+            if "Customer_Age" in self.df.columns:
+                age_stats = {}
+                for age in self.df["Customer_Age"].dropna().unique():
+                    subset = self.df[self.df["Customer_Age"] == age]
+                    age_stats[age] = subset["Sales"].sum()
+                return {"age_sales_summary": age_stats}
 
         # Gender queries (Customer_Gender)
         if "Customer_Gender" in self.df.columns:
