@@ -271,28 +271,20 @@ class InsightRetriever:
                     "age_sales_summary": age_stats
                 }
 
-        # Region consistency / month-to-month queries
-        if "consistent" in query or "consistency" in query or "month-to-month" in query:
-            if "Region" in self.df.columns and "Month" in self.df.columns:
-                consistency_stats = {}
-                for region in self.df["Region"].unique():
-                    region_df = self.df[self.df["Region"] == region]
-                    monthly_totals = (
-                        region_df.groupby("Month")["Sales"]
-                        .sum()
-                        .sort_index()
-                        .tolist()
-                    )
-                    if len(monthly_totals) > 1:
-                        std_dev = pd.Series(monthly_totals).std()
-                        consistency_stats[region] = {
-                            "monthly_totals": monthly_totals,
-                            "std_dev": float(std_dev)
-                        }
-                return {
-                    "type": "region_consistency",
-                    "region_consistency": consistency_stats
-                }
+        # Region consistency / stability queries
+        if (
+            "consistent" in query
+            or "consistency" in query
+            or "month-to-month" in query
+            or "month to month" in query
+            or ("stable" in query and "region" in query)
+            or ("stability" in query and "region" in query)
+            or ("region" in query and "over time" in query)
+            or ("region" in query and "performance" in query and "over time" in query)
+            or ("region" in query and "variance" in query)
+            or ("region" in query and "volatility" in query)
+        ):
+            return self.get_region_consistency_stats()
 
         # Product × Region × Month analysis
         if (
