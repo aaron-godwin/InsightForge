@@ -284,7 +284,22 @@ class InsightRetriever:
             or ("region" in query and "variance" in query)
             or ("region" in query and "volatility" in query)
         ):
-            return self.get_region_consistency()
+            consistency_stats = {}
+            for region in self.df["Region"].unique():
+                region_df = self.df[self.df["Region"] == region]
+                monthly_totals = (
+                    region_df.groupby("Month")["Sales"]
+                    .sum()
+                    .sort_index()
+                    .tolist()
+                )
+                if len(monthly_totals) > 1:
+                    std_dev = pd.Series(monthly_totals).std()
+                    consistency_stats[region] = {
+                        "monthly_totals": monthly_totals,
+                        "std_dev": float(std_dev)
+                    }
+            return {"type": "region_consistency", "region_consistency": consistency_stats}
 
         # Product × Region × Month analysis
         if (
