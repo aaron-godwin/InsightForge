@@ -1,17 +1,27 @@
 import streamlit as st
 from load_data import load_data_and_kb
 from visualization import InsightVisualizer
+from run_query import run_query  # <-- AI Assistant integration
 
 st.set_page_config(page_title="InsightForge BI Assistant", layout="wide")
 
+# ---------------------------------------------------------
+# Title + Intro
+# ---------------------------------------------------------
 st.title("📊 InsightForge — AI‑Powered Business Intelligence")
-st.write("Interact with your data, explore visualizations, and generate insights.")
+st.write(
+    "Explore your data visually or ask natural‑language questions powered by your full RAG system."
+)
 
-# Load data + KB
+# ---------------------------------------------------------
+# Load data + knowledge base
+# ---------------------------------------------------------
 df, kb = load_data_and_kb()
 viz = InsightVisualizer(df, kb)
 
-# Sidebar navigation
+# ---------------------------------------------------------
+# Sidebar Navigation
+# ---------------------------------------------------------
 st.sidebar.header("Navigation")
 page = st.sidebar.radio(
     "Choose a view:",
@@ -20,29 +30,63 @@ page = st.sidebar.radio(
         "Product Performance",
         "Regional Analysis",
         "Customer Demographics",
+        "AI Assistant",  # <-- NEW PAGE
     ]
 )
 
+# ---------------------------------------------------------
 # Sales Trends
+# ---------------------------------------------------------
 if page == "Sales Trends":
     st.header("📈 Sales Trends Over Time")
     st.pyplot(viz.plot_sales_trend())
     st.pyplot(viz.plot_monthly_sales())
 
+# ---------------------------------------------------------
 # Product Performance
+# ---------------------------------------------------------
 elif page == "Product Performance":
     st.header("📦 Product Performance")
     st.pyplot(viz.plot_product_performance())
     st.pyplot(viz.plot_product_region_heatmap())
 
+# ---------------------------------------------------------
 # Regional Analysis
+# ---------------------------------------------------------
 elif page == "Regional Analysis":
     st.header("🌎 Regional Sales Analysis")
     st.pyplot(viz.plot_region_performance())
 
+# ---------------------------------------------------------
 # Customer Demographics
+# ---------------------------------------------------------
 elif page == "Customer Demographics":
     st.header("👥 Customer Demographics")
     st.pyplot(viz.plot_age_group_sales())
     st.pyplot(viz.plot_gender_sales())
     st.pyplot(viz.plot_age_gender_matrix())
+
+# ---------------------------------------------------------
+# AI Assistant (RAG-powered)
+# ---------------------------------------------------------
+elif page == "AI Assistant":
+    st.header("🤖 AI‑Powered BI Assistant")
+
+    st.write(
+        "Ask any question about your data or documents. "
+        "InsightForge will use your full RAG pipeline to retrieve relevant context and generate insights."
+    )
+
+    user_question = st.text_area(
+        "Your question:",
+        placeholder="e.g., Why did sales drop in Q3 in the West region?",
+        height=120,
+    )
+
+    if st.button("Run Analysis"):
+        if not user_question.strip():
+            st.warning("Please enter a question before running analysis.")
+        else:
+            with st.spinner("Analyzing with RAG engine..."):
+                try:
+                    answer = run_query(user_question)
