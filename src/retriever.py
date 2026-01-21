@@ -304,8 +304,9 @@ class InsightRetriever:
             or "region by product" in query
 
             # performance phrasing
-            or ("product" in query and "region" in query and "month" in query)
             or ("product" in query and "region" in query and "performance" in query)
+            or ("product" in query and "region" in query and "over time" in query)
+            or ("product" in query and "region" in query and "trend" in query)
 
             # shift / change phrasing
             or ("shift" in query and "region" in query)
