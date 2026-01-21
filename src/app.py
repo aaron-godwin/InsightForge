@@ -90,3 +90,8 @@ elif page == "AI Assistant":
             with st.spinner("Analyzing with RAG engine..."):
                 try:
                     answer = run_query(user_question)
+                    st.subheader("Answer")
+                    st.write(answer)
+                except Exception as e:
+                    st.error("An error occurred while running the AI assistant.")
+                    st.exception(e)
