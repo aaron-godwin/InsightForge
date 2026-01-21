@@ -284,7 +284,7 @@ class InsightRetriever:
             or ("region" in query and "variance" in query)
             or ("region" in query and "volatility" in query)
         ):
-            return self.get_region_consistency_stats()
+            return self.get_region_consistency()
 
         # Product × Region × Month analysis
         if (
