@@ -55,16 +55,33 @@ class InsightRetriever:
         }
 
     # ---------------------------------------------------------
-    # Retrieve demographic statistics
+    # Retrieve demographic statistics (Customer_Age)
     # ---------------------------------------------------------
-    def get_age_group_stats(self, age_group):
-        subset = self.df[self.df["Age_Group"] == age_group]
+    def get_age_stats(self, age_value):
+        subset = self.df[self.df["Customer_Age"] == age_value]
 
         if subset.empty:
-            return f"No data found for age group '{age_group}'."
+            return f"No data found for age '{age_value}'."
 
         return {
-            "age_group": age_group,
+            "age": age_value,
+            "total_sales": subset["Sales"].sum(),
+            "avg_sales": subset["Sales"].mean(),
+            "avg_satisfaction": subset["Customer_Satisfaction"].mean()
+        }
+
+    # ---------------------------------------------------------
+    # Retrieve demographic statistics (Customer_Gender)
+    # ---------------------------------------------------------
+    def get_gender_stats(self, gender_value):
+        subset = self.df[self.df["Customer_Gender"] == gender_value]
+
+        if subset.empty:
+            return f"No data found for gender '{gender_value}'."
+
+        return {
+            "gender": gender_value,
+            "total_sales": subset["Sales"].sum(),
             "avg_sales": subset["Sales"].mean(),
             "avg_satisfaction": subset["Customer_Satisfaction"].mean()
         }
@@ -85,10 +102,17 @@ class InsightRetriever:
             if region.lower() in query:
                 return self.get_region_stats(region)
 
-        # Age group queries
-        for group in self.df["Age_Group"].dropna().unique():
-            if str(group).lower() in query:
-                return self.get_age_group_stats(group)
+        # Age queries (Customer_Age)
+        if "Customer_Age" in self.df.columns:
+            for age in self.df["Customer_Age"].dropna().unique():
+                if str(age).lower() in query:
+                    return self.get_age_stats(age)
+
+        # Gender queries (Customer_Gender)
+        if "Customer_Gender" in self.df.columns:
+            for gender in self.df["Customer_Gender"].dropna().unique():
+                if str(gender).lower() in query:
+                    return self.get_gender_stats(gender)
 
         # Month queries
         for month in self.df["Month"].unique():
