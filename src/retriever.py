@@ -295,8 +295,18 @@ class InsightRetriever:
                 }
 
         # Product × Region × Month analysis
-        if "by region and month" in query or "product by region by month" in query:
+        if (
+            "product-region" in query
+            or "product region" in query
+            or "product–region" in query
+            or "product by region" in query
+            or "region by product" in query
+            or "strongest" in query and "region" in query
+            or "weakest" in query and "region" in query
+            or "combination" in query and "region" in query
+        ):
             return self.get_product_region_month_stats()
+
 
         # Trend detection
         if "trend" in query or "increasing" in query or "decreasing" in query or "seasonal" in query:
