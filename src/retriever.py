@@ -122,4 +122,30 @@ class InsightRetriever:
             if str(month).lower() in query:
                 return self.get_monthly_stats(month)
 
+        # Region consistency queries
+        if "consistent" in query or "consistency" in query or "month-to-month" in query:
+            if "Region" in self.df.columns and "Month" in self.df.columns:
+                consistency_stats = {}
+
+                for region in self.df["Region"].unique():
+                    region_df = self.df[self.df["Region"] == region]
+
+                    # Compute monthly totals
+                    monthly_totals = (
+                        region_df.groupby("Month")["Sales"]
+                        .sum()
+                        .sort_index()
+                        .tolist()
+                    )
+
+                    if len(monthly_totals) > 1:
+                        # Standard deviation as a consistency measure
+                        std_dev = pd.Series(monthly_totals).std()
+                        consistency_stats[region] = {
+                            "monthly_totals": monthly_totals,
+                            "std_dev": float(std_dev)
+                        }
+
+                return {"region_consistency": consistency_stats}
+
         return "No matching statistics found for your query."
