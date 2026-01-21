@@ -325,7 +325,19 @@ class InsightRetriever:
 
 
         # Trend detection
-        if "trend" in query or "increasing" in query or "decreasing" in query or "seasonal" in query:
+        if (
+            "trend" in query
+            or "increasing" in query
+            or "decreasing" in query
+            or "seasonal" in query
+            or "trajectory" in query
+            or "long-term" in query
+            or "long term" in query
+            or ("sales" in query and "over time" in query)
+            or ("historical" in query and "sales" in query)
+            or ("sales" in query and "direction" in query)
+            or ("sales" in query and "movement" in query)
+        ):
             return self.get_trend_stats()
 
         # Anomaly detection
