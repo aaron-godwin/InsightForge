@@ -296,14 +296,29 @@ class InsightRetriever:
 
         # Product × Region × Month analysis
         if (
+            # direct phrasing
             "product-region" in query
             or "product region" in query
             or "product–region" in query
             or "product by region" in query
             or "region by product" in query
-            or "strongest" in query and "region" in query
-            or "weakest" in query and "region" in query
-            or "combination" in query and "region" in query
+
+            # performance phrasing
+            or ("product" in query and "region" in query and "month" in query)
+            or ("product" in query and "region" in query and "performance" in query)
+
+            # shift / change phrasing
+            or ("shift" in query and "region" in query)
+            or ("shifts" in query and "region" in query)
+            or ("month-to-month" in query and "region" in query)
+            or ("month to month" in query and "region" in query)
+
+            # strongest / weakest phrasing
+            or ("strongest" in query and "region" in query)
+            or ("weakest" in query and "region" in query)
+
+            # comparison phrasing
+            or ("compare" in query and "region" in query and "product" in query)
         ):
             return self.get_product_region_month_stats()
 
