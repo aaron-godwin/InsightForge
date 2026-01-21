@@ -39,7 +39,7 @@ def run_query(question: str) -> str:
             temperature=0.2,
         )
 
-        answer = response.choices[0].message["content"]
+        answer = response.choices[0].message.content
         return answer
 
     except Exception as e:
