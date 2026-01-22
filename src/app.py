@@ -6,13 +6,17 @@ from run_query import run_query  # AI Assistant integration
 st.set_page_config(page_title="InsightForge BI Assistant", layout="wide")
 
 # ---------------------------------------------------------
-# Initialize chat history + rerun flag
+# Initialize session state
 # ---------------------------------------------------------
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
 if "_trigger_rerun" not in st.session_state:
     st.session_state["_trigger_rerun"] = False
+
+# NEW: required for run_query.py
+if "conversation_summary" not in st.session_state:
+    st.session_state.conversation_summary = ""
 
 # ---------------------------------------------------------
 # ChatGPT-style CSS with avatars
