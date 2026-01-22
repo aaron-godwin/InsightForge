@@ -119,6 +119,9 @@ elif page == "AI Assistant":
         "InsightForge will use your full RAG pipeline to retrieve relevant context and generate insights."
     )
 
+    # Flag to safely trigger reruns
+    should_rerun = False
+
     # Chat history display
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
     for turn in st.session_state.chat_history:
@@ -155,7 +158,7 @@ elif page == "AI Assistant":
             with st.spinner("Analyzing with RAG engine..."):
                 answer = run_query(s)
             st.session_state.chat_history.append({"user": s, "assistant": answer})
-            st.experimental_rerun()
+            should_rerun = True
 
     # Run analysis button
     if st.button("Run Analysis"):
@@ -168,7 +171,11 @@ elif page == "AI Assistant":
                     st.session_state.chat_history.append(
                         {"user": user_question, "assistant": answer}
                     )
-                    st.experimental_rerun()
+                    should_rerun = True
                 except Exception as e:
                     st.error("An error occurred while running the AI assistant.")
                     st.exception(e)
+
+    # Safe rerun at the end of the script
+    if should_rerun:
+        st.experimental_rerun()
