@@ -12,6 +12,36 @@ if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
 # ---------------------------------------------------------
+# ChatGPT-style CSS
+# ---------------------------------------------------------
+chat_css = """
+<style>
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.user-bubble {
+    background-color: #DCF8C6;
+    padding: 10px 14px;
+    border-radius: 12px;
+    margin-bottom: 4px;
+    max-width: 80%;
+    align-self: flex-end;
+}
+.assistant-bubble {
+    background-color: #F1F0F0;
+    padding: 10px 14px;
+    border-radius: 12px;
+    margin-bottom: 4px;
+    max-width: 80%;
+    align-self: flex-start;
+}
+</style>
+"""
+st.markdown(chat_css, unsafe_allow_html=True)
+
+# ---------------------------------------------------------
 # Title + Intro
 # ---------------------------------------------------------
 st.title("📊 InsightForge — AI‑Powered Business Intelligence")
@@ -37,10 +67,10 @@ page = st.sidebar.radio(
         "Regional Analysis",
         "Customer Demographics",
         "AI Assistant",
-    ]
+    ],
 )
 
-# Add Clear Conversation button in sidebar
+# Clear conversation button (only on AI Assistant page)
 if page == "AI Assistant":
     if st.sidebar.button("🧹 Clear Conversation"):
         st.session_state.chat_history = []
@@ -89,19 +119,45 @@ elif page == "AI Assistant":
         "InsightForge will use your full RAG pipeline to retrieve relevant context and generate insights."
     )
 
-    # Display chat history
+    # Chat history display
+    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
     for turn in st.session_state.chat_history:
-        st.markdown(f"**You:** {turn['user']}")
-        st.markdown(f"**Assistant:** {turn['assistant']}")
-        st.markdown("---")
+        st.markdown(
+            f'<div class="user-bubble"><b>You:</b> {turn["user"]}</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f'<div class="assistant-bubble"><b>Assistant:</b> {turn["assistant"]}</div>',
+            unsafe_allow_html=True,
+        )
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    # User input (NO KEY to avoid StreamlitAPIException)
+    # User input
     user_question = st.text_area(
         "Your question:",
         placeholder="e.g., Why did sales drop in Q3 in the West region?",
-        height=120
+        height=120,
     )
 
+    # Suggested questions
+    st.subheader("Suggested questions")
+    suggestions = [
+        "Which region is performing the best this year?",
+        "Are there any anomalies in monthly sales?",
+        "What is the forecast for the next quarter?",
+        "Which product is gaining momentum over time?",
+        "How do customer age groups differ in revenue contribution?",
+    ]
+
+    cols = st.columns(2)
+    for i, s in enumerate(suggestions):
+        if cols[i % 2].button(s):
+            with st.spinner("Analyzing with RAG engine..."):
+                answer = run_query(s)
+            st.session_state.chat_history.append({"user": s, "assistant": answer})
+            st.experimental_rerun()
+
+    # Run analysis button
     if st.button("Run Analysis"):
         if not user_question.strip():
             st.warning("Please enter a question before running analysis.")
@@ -109,16 +165,10 @@ elif page == "AI Assistant":
             with st.spinner("Analyzing with RAG engine..."):
                 try:
                     answer = run_query(user_question)
-
-                    # Add to history
-                    st.session_state.chat_history.append({
-                        "user": user_question,
-                        "assistant": answer
-                    })
-
-                    # Rerun to refresh chat display and clear input
+                    st.session_state.chat_history.append(
+                        {"user": user_question, "assistant": answer}
+                    )
                     st.experimental_rerun()
-
                 except Exception as e:
                     st.error("An error occurred while running the AI assistant.")
                     st.exception(e)
