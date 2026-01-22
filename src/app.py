@@ -1,9 +1,15 @@
 import streamlit as st
 from load_data import load_data_and_kb
 from visualization import InsightVisualizer
-from run_query import run_query  # <-- AI Assistant integration
+from run_query import run_query  # AI Assistant integration
 
 st.set_page_config(page_title="InsightForge BI Assistant", layout="wide")
+
+# ---------------------------------------------------------
+# Initialize chat history
+# ---------------------------------------------------------
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 
 # ---------------------------------------------------------
 # Title + Intro
@@ -30,9 +36,15 @@ page = st.sidebar.radio(
         "Product Performance",
         "Regional Analysis",
         "Customer Demographics",
-        "AI Assistant",  # <-- NEW PAGE
+        "AI Assistant",
     ]
 )
+
+# Add Clear Conversation button in sidebar
+if page == "AI Assistant":
+    if st.sidebar.button("🧹 Clear Conversation"):
+        st.session_state.chat_history = []
+        st.experimental_rerun()
 
 # ---------------------------------------------------------
 # Sales Trends
@@ -77,10 +89,18 @@ elif page == "AI Assistant":
         "InsightForge will use your full RAG pipeline to retrieve relevant context and generate insights."
     )
 
+    # Display chat history
+    for turn in st.session_state.chat_history:
+        st.markdown(f"**You:** {turn['user']}")
+        st.markdown(f"**Assistant:** {turn['assistant']}")
+        st.markdown("---")
+
+    # User input
     user_question = st.text_area(
         "Your question:",
         placeholder="e.g., Why did sales drop in Q3 in the West region?",
         height=120,
+        key="user_input"
     )
 
     if st.button("Run Analysis"):
@@ -90,8 +110,19 @@ elif page == "AI Assistant":
             with st.spinner("Analyzing with RAG engine..."):
                 try:
                     answer = run_query(user_question)
-                    st.subheader("Answer")
-                    st.write(answer)
+
+                    # Add to history
+                    st.session_state.chat_history.append({
+                        "user": user_question,
+                        "assistant": answer
+                    })
+
+                    # Clear input
+                    st.session_state.user_input = ""
+
+                    # Refresh UI to show updated history
+                    st.experimental_rerun()
+
                 except Exception as e:
                     st.error("An error occurred while running the AI assistant.")
                     st.exception(e)

@@ -24,7 +24,6 @@ def compress_stats(stats: dict, max_items: int = 20):
 
     for key, value in stats.items():
         if isinstance(value, dict):
-            # Keep only first N items
             items = list(value.items())[:max_items]
             compressed[key] = {k: compress_stats(v, max_items) for k, v in items}
 
@@ -46,14 +45,37 @@ df, kb = load_data_and_kb()
 retriever = InsightRetriever(df, kb)
 
 
+# ---------------------------------------------------------
+# Chat History Initialization
+# ---------------------------------------------------------
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+
+def build_history_text():
+    """
+    Convert the last 6 turns of chat history into a text block
+    that can be injected into the LLM prompt.
+    """
+    history = st.session_state.chat_history[-6:]  # last 6 turns only
+    text = ""
+
+    for turn in history:
+        text += f"User: {turn['user']}\nAssistant: {turn['assistant']}\n\n"
+
+    return text
+
+
 def run_query(question: str) -> str:
     """
     Full RAG pipeline using Groq:
     1. Retrieve relevant statistics
     2. Compress stats to avoid token overflow
     3. Build the correct LLM prompt (insight, trend, anomaly, forecast, etc.)
-    4. Generate an answer using Llama‑3.1‑8B
-    5. Return the insight text
+    4. Add chat history context
+    5. Generate an answer using Llama‑3.1‑8B
+    6. Save the turn to chat history
+    7. Return the insight text
     """
 
     # Step 1 — Retrieve stats
@@ -64,40 +86,65 @@ def run_query(question: str) -> str:
 
     # Step 3 — Prompt routing
     if isinstance(stats, dict):
-
         stype = stats.get("type")
 
         if stype == "forecast_context":
-            prompt = build_forecast_prompt(question, stats)
+            core_prompt = build_forecast_prompt(question, stats)
 
         elif stype == "trend_stats":
-            prompt = build_trend_prompt(question, stats)
+            core_prompt = build_trend_prompt(question, stats)
 
         elif stype == "anomaly_stats":
-            prompt = build_anomaly_prompt(question, stats)
+            core_prompt = build_anomaly_prompt(question, stats)
 
         elif stype == "product_region_month_stats":
-            prompt = build_product_region_month_prompt(question, stats)
+            core_prompt = build_product_region_month_prompt(question, stats)
 
         else:
-            prompt = build_insight_prompt(question, stats)
+            core_prompt = build_insight_prompt(question, stats)
 
     else:
         # Fallback for string messages like "No matching statistics found"
-        prompt = build_insight_prompt(question, stats)
+        core_prompt = build_insight_prompt(question, stats)
 
-    # Step 4 — Call Groq LLM
+    # Step 4 — Add chat history to the prompt
+    history_text = build_history_text()
+
+    final_prompt = f"""
+You are InsightForge, an AI business intelligence assistant.
+
+Conversation so far:
+{history_text}
+
+User question:
+{question}
+
+Your task:
+Use the conversation context AND the structured statistics below to produce a clear, grounded, business-focused insight.
+
+Structured statistics:
+{core_prompt}
+"""
+
+    # Step 5 — Call Groq LLM
     try:
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": "You are InsightForge, an AI BI assistant."},
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": final_prompt}
             ],
             temperature=0.2,
         )
 
         answer = response.choices[0].message.content
+
+        # Step 6 — Save turn to chat history
+        st.session_state.chat_history.append({
+            "user": question,
+            "assistant": answer
+        })
+
         return answer
 
     except Exception as e:
