@@ -95,12 +95,11 @@ elif page == "AI Assistant":
         st.markdown(f"**Assistant:** {turn['assistant']}")
         st.markdown("---")
 
-    # User input
+    # User input (NO KEY to avoid StreamlitAPIException)
     user_question = st.text_area(
         "Your question:",
         placeholder="e.g., Why did sales drop in Q3 in the West region?",
-        height=120,
-        key="user_input"
+        height=120
     )
 
     if st.button("Run Analysis"):
@@ -117,10 +116,7 @@ elif page == "AI Assistant":
                         "assistant": answer
                     })
 
-                    # Clear input
-                    st.session_state.user_input = ""
-
-                    # Refresh UI to show updated history
+                    # Rerun to refresh chat display and clear input
                     st.experimental_rerun()
 
                 except Exception as e:
