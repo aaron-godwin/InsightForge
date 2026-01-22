@@ -210,6 +210,7 @@ class InsightRetriever:
     # ---------------------------------------------------------
     # Forecasting hook (for Groq-powered forecasting)
     # ---------------------------------------------------------
+    
     def get_forecast_context(self, horizon_months: int = 3):
         """
         Returns structured monthly sales history that the LLM (Groq) can use
@@ -221,13 +222,22 @@ class InsightRetriever:
             self.df
             .groupby("Month")["Sales"]
             .sum()
-            .sort_index()
+            .reset_index()
         )
+
+        # Sort chronologically
+        monthly["Month"] = pd.PeriodIndex(monthly["Month"], freq="M").astype(str)
+        monthly = monthly.sort_values("Month")
+
+        series = monthly.set_index("Month")["Sales"].astype(float)
 
         return {
             "type": "forecast_context",
-            "monthly_sales": monthly.to_dict(),
-            "horizon_months": horizon_months
+            "monthly_sales": series.to_dict(),
+            "horizon_months": horizon_months,
+            "meta": {
+                "num_months": len(series)
+            }
         }
 
     # ---------------------------------------------------------
@@ -287,18 +297,22 @@ class InsightRetriever:
             consistency_stats = {}
             for region in self.df["Region"].unique():
                 region_df = self.df[self.df["Region"] == region]
-                monthly_totals = (
+                monthly = (
                     region_df.groupby("Month")["Sales"]
                     .sum()
-                    .sort_index()
-                    .tolist()
+                    .reset_index()
                 )
+                monthly["Month"] = pd.PeriodIndex(monthly["Month"], freq="M").astype(str)
+                monthly = monthly.sort_values("Month")
+                monthly_totals = monthly["Sales"].astype(float).tolist()
+
                 if len(monthly_totals) > 1:
                     std_dev = pd.Series(monthly_totals).std()
                     consistency_stats[region] = {
                         "monthly_totals": monthly_totals,
                         "std_dev": float(std_dev)
                     }
+
             return {"type": "region_consistency", "region_consistency": consistency_stats}
 
         # Product × Region × Month analysis
@@ -366,13 +380,25 @@ class InsightRetriever:
             return self.get_anomaly_stats()
 
         # Forecasting
-        if "forecast" in query or "predict" in query or "projection" in query:
-            # You can parse horizon from query later if you want
+        if (
+            "forecast" in query
+            or "predict" in query
+            or "projection" in query
+            or "project" in query
+            or "next month" in query
+            or "next quarter" in query
+            or "future" in query and "sales" in query
+            or "expected" in query and "sales" in query
+            or "outlook" in query and "sales" in query
+        ):
+            # Horizon is fixed for now; can be parsed from query later
             return self.get_forecast_context(horizon_months=3)
 
         # Month queries (explicit month mention)
-        for month in self.df["Month"].unique():
-            if str(month).lower() in query:
-                return self.get_monthly_stats(month)
+        if "month" in query or any(str(m).lower() in query for m in self.df["Month"].unique()):
+            for month in self.df["Month"].unique():
+                m_str = str(month).lower()
+                if m_str in query:
+                    return self.get_monthly_stats(month)
 
         return "No matching statistics found for your query."
