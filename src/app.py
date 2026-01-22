@@ -6,12 +6,11 @@ from run_query import run_query  # AI Assistant integration
 st.set_page_config(page_title="InsightForge BI Assistant", layout="wide")
 
 # ---------------------------------------------------------
-# Initialize chat history
+# Initialize chat history + rerun flag
 # ---------------------------------------------------------
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# Global rerun flag
 if "_trigger_rerun" not in st.session_state:
     st.session_state["_trigger_rerun"] = False
 
@@ -199,7 +198,7 @@ elif page == "AI Assistant":
             st.session_state["_trigger_rerun"] = True
 
 # ---------------------------------------------------------
-# SAFE RERUN HANDLER (must be at top level)
+# SAFE RERUN HANDLER — MUST BE AT TOP LEVEL
 # ---------------------------------------------------------
 if st.session_state.get("_trigger_rerun", False):
     st.session_state["_trigger_rerun"] = False
