@@ -11,6 +11,10 @@ st.set_page_config(page_title="InsightForge BI Assistant", layout="wide")
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
+# Global rerun flag
+if "_trigger_rerun" not in st.session_state:
+    st.session_state["_trigger_rerun"] = False
+
 # ---------------------------------------------------------
 # ChatGPT-style CSS with avatars
 # ---------------------------------------------------------
@@ -83,7 +87,7 @@ page = st.sidebar.radio(
 if page == "AI Assistant":
     if st.sidebar.button("🧹 Clear Conversation"):
         st.session_state.chat_history = []
-        st.experimental_rerun()
+        st.session_state["_trigger_rerun"] = True
 
 # ---------------------------------------------------------
 # Sales Trends
@@ -128,9 +132,6 @@ elif page == "AI Assistant":
         "InsightForge will use your full RAG pipeline to retrieve relevant context and generate insights."
     )
 
-    # Flag to safely trigger reruns
-    should_rerun = False
-
     # Chat history display
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
 
@@ -157,7 +158,7 @@ elif page == "AI Assistant":
             unsafe_allow_html=True,
         )
 
-        # RAW STATS EXPANDER (if available)
+        # RAW STATS EXPANDER
         if "stats" in turn and turn["stats"] is not None:
             with st.expander("Raw Stats Used"):
                 st.json(turn["stats"])
@@ -185,8 +186,8 @@ elif page == "AI Assistant":
     for i, s in enumerate(suggestions):
         if cols[i % 2].button(s):
             with st.spinner("Analyzing with RAG engine..."):
-                result = run_query(s)  # returns answer + stores stats in chat_history
-            should_rerun = True
+                run_query(s)
+            st.session_state["_trigger_rerun"] = True
 
     # Run analysis button
     if st.button("Run Analysis"):
@@ -194,13 +195,12 @@ elif page == "AI Assistant":
             st.warning("Please enter a question before running analysis.")
         else:
             with st.spinner("Analyzing with RAG engine..."):
-                try:
-                    result = run_query(user_question)
-                    should_rerun = True
-                except Exception as e:
-                    st.error("An error occurred while running the AI assistant.")
-                    st.exception(e)
+                run_query(user_question)
+            st.session_state["_trigger_rerun"] = True
 
-    # Safe rerun at the end of the script
-    if should_rerun:
-        st.experimental_rerun()
+# ---------------------------------------------------------
+# SAFE RERUN HANDLER (must be at top level)
+# ---------------------------------------------------------
+if st.session_state.get("_trigger_rerun", False):
+    st.session_state["_trigger_rerun"] = False
+    st.experimental_rerun()
