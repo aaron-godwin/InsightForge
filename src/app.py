@@ -12,30 +12,39 @@ if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
 # ---------------------------------------------------------
-# ChatGPT-style CSS
+# ChatGPT-style CSS with avatars
 # ---------------------------------------------------------
 chat_css = """
 <style>
 .chat-container {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.75rem;
 }
 .user-bubble {
     background-color: #DCF8C6;
     padding: 10px 14px;
     border-radius: 12px;
-    margin-bottom: 4px;
     max-width: 80%;
     align-self: flex-end;
+    display: flex;
+    gap: 8px;
 }
 .assistant-bubble {
     background-color: #F1F0F0;
     padding: 10px 14px;
     border-radius: 12px;
-    margin-bottom: 4px;
     max-width: 80%;
     align-self: flex-start;
+    display: flex;
+    gap: 8px;
+}
+.avatar {
+    font-size: 24px;
+    line-height: 24px;
+}
+.bubble-text {
+    flex-grow: 1;
 }
 </style>
 """
@@ -124,15 +133,35 @@ elif page == "AI Assistant":
 
     # Chat history display
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+
     for turn in st.session_state.chat_history:
+        # USER BUBBLE
         st.markdown(
-            f'<div class="user-bubble"><b>You:</b> {turn["user"]}</div>',
+            f"""
+            <div class="user-bubble">
+                <div class="avatar">👤</div>
+                <div class="bubble-text"><b>You:</b> {turn["user"]}</div>
+            </div>
+            """,
             unsafe_allow_html=True,
         )
+
+        # ASSISTANT BUBBLE
         st.markdown(
-            f'<div class="assistant-bubble"><b>Assistant:</b> {turn["assistant"]}</div>',
+            f"""
+            <div class="assistant-bubble">
+                <div class="avatar">🤖</div>
+                <div class="bubble-text"><b>Assistant:</b> {turn["assistant"]}</div>
+            </div>
+            """,
             unsafe_allow_html=True,
         )
+
+        # RAW STATS EXPANDER (if available)
+        if "stats" in turn and turn["stats"] is not None:
+            with st.expander("Raw Stats Used"):
+                st.json(turn["stats"])
+
     st.markdown("</div>", unsafe_allow_html=True)
 
     # User input
@@ -156,8 +185,7 @@ elif page == "AI Assistant":
     for i, s in enumerate(suggestions):
         if cols[i % 2].button(s):
             with st.spinner("Analyzing with RAG engine..."):
-                answer = run_query(s)
-            st.session_state.chat_history.append({"user": s, "assistant": answer})
+                result = run_query(s)  # returns answer + stores stats in chat_history
             should_rerun = True
 
     # Run analysis button
@@ -167,10 +195,7 @@ elif page == "AI Assistant":
         else:
             with st.spinner("Analyzing with RAG engine..."):
                 try:
-                    answer = run_query(user_question)
-                    st.session_state.chat_history.append(
-                        {"user": user_question, "assistant": answer}
-                    )
+                    result = run_query(user_question)
                     should_rerun = True
                 except Exception as e:
                     st.error("An error occurred while running the AI assistant.")
