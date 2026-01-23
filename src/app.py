@@ -208,4 +208,4 @@ elif page == "AI Assistant":
 # ---------------------------------------------------------
 if st.session_state.get("_trigger_rerun", False):
     st.session_state["_trigger_rerun"] = False
-    st.experimental_rerun()
+    st.rerun()
