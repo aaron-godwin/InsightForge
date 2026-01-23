@@ -3,8 +3,6 @@ from load_data import load_data_and_kb
 from visualization import InsightVisualizer
 from run_query import run_query  # AI Assistant integration
 
-# force Streamlit to reload latest commit
-
 st.set_page_config(page_title="InsightForge BI Assistant", layout="wide")
 
 # ---------------------------------------------------------
@@ -16,7 +14,6 @@ if "chat_history" not in st.session_state:
 if "_trigger_rerun" not in st.session_state:
     st.session_state["_trigger_rerun"] = False
 
-# NEW: required for run_query.py
 if "conversation_summary" not in st.session_state:
     st.session_state.conversation_summary = ""
 
@@ -74,6 +71,22 @@ df, kb = load_data_and_kb()
 viz = InsightVisualizer(df, kb)
 
 # ---------------------------------------------------------
+# Precompute Top Insights
+# ---------------------------------------------------------
+region_totals = df.groupby("Region")["Sales"].sum()
+product_totals = df.groupby("Product")["Sales"].sum()
+monthly_sales = df.groupby("Month")["Sales"].sum()
+
+top_region = region_totals.idxmax()
+top_region_value = float(region_totals.max())
+
+top_product = product_totals.idxmax()
+top_product_value = float(product_totals.max())
+
+best_month = monthly_sales.idxmax()
+best_month_value = float(monthly_sales.max())
+
+# ---------------------------------------------------------
 # Sidebar Navigation
 # ---------------------------------------------------------
 st.sidebar.header("Navigation")
@@ -88,11 +101,59 @@ page = st.sidebar.radio(
     ],
 )
 
-# Clear conversation button (only on AI Assistant page)
+# Clear conversation button
 if page == "AI Assistant":
     if st.sidebar.button("🧹 Clear Conversation"):
         st.session_state.chat_history = []
         st.session_state["_trigger_rerun"] = True
+
+# ---------------------------------------------------------
+# Suggested Questions Helper
+# ---------------------------------------------------------
+def get_suggested_questions(last_question: str | None):
+    if not last_question:
+        return [
+            "Which region is performing the best this year?",
+            "Are there any anomalies in monthly sales?",
+            "What is the forecast for the next quarter?",
+            "Which product is gaining momentum over time?",
+            "How do customer age groups differ in revenue contribution?",
+        ]
+
+    q = last_question.lower()
+
+    if "region" in q:
+        return [
+            "How consistent are regions in their performance over time?",
+            "Which region shows the most volatility in sales?",
+            "How does the top region compare to others this year?",
+        ]
+    if "product" in q:
+        return [
+            "Which product is gaining momentum over recent months?",
+            "How do products compare across regions?",
+            "Which product contributes most to total revenue?",
+        ]
+    if "forecast" in q or "next" in q or "future" in q:
+        return [
+            "What is the expected sales trend for the next quarter?",
+            "How does the recent trend affect future projections?",
+            "Are there any risks to the current forecast?",
+        ]
+    if "anomaly" in q or "spike" in q or "drop" in q:
+        return [
+            "Which months show the largest deviations from the norm?",
+            "Are anomalies concentrated in specific regions or products?",
+            "Do anomalies correlate with any particular events or periods?",
+        ]
+
+    return [
+        "Which region is performing the best this year?",
+        "Are there any anomalies in monthly sales?",
+        "What is the forecast for the next quarter?",
+        "Which product is gaining momentum over time?",
+        "How do customer age groups differ in revenue contribution?",
+    ]
 
 # ---------------------------------------------------------
 # Sales Trends
@@ -127,7 +188,7 @@ elif page == "Customer Demographics":
     st.pyplot(viz.plot_age_gender_matrix())
 
 # ---------------------------------------------------------
-# AI Assistant (RAG-powered)
+# AI Assistant
 # ---------------------------------------------------------
 elif page == "AI Assistant":
     st.header("🤖 AI‑Powered BI Assistant")
@@ -138,12 +199,26 @@ elif page == "AI Assistant":
     )
 
     # -----------------------------------------------------
+    # Top Insights Panel
+    # -----------------------------------------------------
+    with st.expander("📌 Top Insights from your data", expanded=True):
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.metric("Top Region", top_region, f"{top_region_value:,.0f}")
+
+        with col2:
+            st.metric("Top Product", top_product, f"{top_product_value:,.0f}")
+
+        with col3:
+            st.metric("Best Month", str(best_month), f"{best_month_value:,.0f}")
+
+    # -----------------------------------------------------
     # Chat history display
     # -----------------------------------------------------
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
 
     for turn in st.session_state.chat_history:
-        # USER BUBBLE
         st.markdown(
             f"""
             <div class="user-bubble">
@@ -154,7 +229,6 @@ elif page == "AI Assistant":
             unsafe_allow_html=True,
         )
 
-        # ASSISTANT BUBBLE
         st.markdown(
             f"""
             <div class="assistant-bubble">
@@ -165,7 +239,6 @@ elif page == "AI Assistant":
             unsafe_allow_html=True,
         )
 
-        # RAW STATS EXPANDER
         if "stats" in turn and turn["stats"] is not None:
             with st.expander("Raw Stats Used"):
                 st.json(turn["stats"])
@@ -182,16 +255,16 @@ elif page == "AI Assistant":
     )
 
     # -----------------------------------------------------
-    # Suggested questions
+    # Suggested questions (context-aware)
     # -----------------------------------------------------
     st.subheader("Suggested questions")
-    suggestions = [
-        "Which region is performing the best this year?",
-        "Are there any anomalies in monthly sales?",
-        "What is the forecast for the next quarter?",
-        "Which product is gaining momentum over time?",
-        "How do customer age groups differ in revenue contribution?",
-    ]
+
+    last_question = (
+        st.session_state.chat_history[-1]["user"]
+        if st.session_state.chat_history
+        else None
+    )
+    suggestions = get_suggested_questions(last_question)
 
     cols = st.columns(2)
     for i, s in enumerate(suggestions):
@@ -212,7 +285,7 @@ elif page == "AI Assistant":
             st.session_state["_trigger_rerun"] = True
 
     # -----------------------------------------------------
-    # SAFE RERUN HANDLER — MUST BE AT THE END OF THE PAGE
+    # SAFE RERUN HANDLER — MUST BE LAST
     # -----------------------------------------------------
     if st.session_state.get("_trigger_rerun", False):
         st.session_state["_trigger_rerun"] = False

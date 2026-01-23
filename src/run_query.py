@@ -92,7 +92,7 @@ Conversation to summarize:
                 messages=[{"role": "user", "content": summary_prompt}],
                 temperature=0.2,
             )
-            summary = response.choices[0].message.content   # FIXED
+            summary = response.choices[0].message.content
             st.session_state.conversation_summary = summary
         except Exception as e:
             print(f"Summarization failed: {e}")
@@ -160,6 +160,19 @@ def run_query(question: str) -> str:
         stats = retriever.retrieve(question)
         print("Stats retrieved")
 
+        # -----------------------------------------------------
+        # Guardrail: ambiguous / no-stats queries
+        # -----------------------------------------------------
+        if isinstance(stats, dict) and stats.get("type") == "no_stats":
+            assistant_msg = (
+                "Your question is a bit broad. Would you like to focus on a specific "
+                "region, product, or the entire dataset?"
+            )
+            st.session_state.chat_history.append(
+                {"user": question, "assistant": assistant_msg, "stats": None}
+            )
+            return assistant_msg
+
         # Step 2 — Compress stats
         stats = compress_stats(stats, max_items=20)
 
@@ -173,6 +186,8 @@ def run_query(question: str) -> str:
                 "forecast_context",
                 "product_region_month_stats",
                 "region_consistency",
+                "region_performance",
+                "product_performance",
             }
             if stats_type in complex_types:
                 analytical = True
@@ -199,7 +214,7 @@ def run_query(question: str) -> str:
             temperature=0.2,
         )
 
-        answer = response.choices[0].message.content   # FIXED
+        answer = response.choices[0].message.content
         print("Groq response received")
 
         # Step 7 — Save turn
@@ -213,7 +228,6 @@ def run_query(question: str) -> str:
         error_msg = f"Error running Groq query: {e}"
         print(error_msg)
 
-        # Surface error in UI
         st.session_state.chat_history.append(
             {"user": question, "assistant": error_msg, "stats": None}
         )
