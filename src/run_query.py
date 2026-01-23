@@ -3,8 +3,6 @@ from groq import Groq
 from load_data import load_data_and_kb
 from retriever import InsightRetriever
 
-print("run_query() was called")
-
 # ---------------------------------------------------------
 # Initialization
 # ---------------------------------------------------------
@@ -19,12 +17,14 @@ df, kb = load_data_and_kb()
 retriever = InsightRetriever(df, kb)
 
 # ---------------------------------------------------------
-# Utility: Create Groq client lazily (AFTER secrets load)
+# Lazy Groq client creation (safe for Streamlit Cloud)
 # ---------------------------------------------------------
 def get_groq_client():
     api_key = st.secrets.get("GROQ_API_KEY")
     if not api_key:
-        raise ValueError("GROQ_API_KEY is missing from Streamlit secrets.")
+        msg = "GROQ_API_KEY missing from Streamlit secrets."
+        print(msg)
+        raise ValueError(msg)
     return Groq(api_key=api_key)
 
 # ---------------------------------------------------------
@@ -94,13 +94,13 @@ Conversation to summarize:
             )
             summary = response.choices[0].message["content"]
             st.session_state.conversation_summary = summary
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Summarization failed: {e}")
 
         st.session_state.chat_history = st.session_state.chat_history[-4:]
 
 # ---------------------------------------------------------
-# Build unified prompt
+# Unified prompt builder
 # ---------------------------------------------------------
 def build_unified_prompt(question: str, stats, analytical_mode: bool) -> str:
     history_text = ""
@@ -153,38 +153,43 @@ Your task:
 # Main entry point
 # ---------------------------------------------------------
 def run_query(question: str) -> str:
-    # Step 1 — Retrieve stats
-    stats = retriever.retrieve(question)
+    print(f"run_query() called with question: {question}")
 
-    # Step 2 — Compress stats
-    stats = compress_stats(stats, max_items=20)
+    try:
+        # Step 1 — Retrieve stats
+        stats = retriever.retrieve(question)
+        print("Stats retrieved")
 
-    # Step 3 — Decide mode
-    analytical = False
-    if isinstance(stats, dict):
-        stats_type = stats.get("type")
-        complex_types = {
-            "trend_stats",
-            "anomaly_stats",
-            "forecast_context",
-            "product_region_month_stats",
-            "region_consistency",
-        }
-        if stats_type in complex_types:
+        # Step 2 — Compress stats
+        stats = compress_stats(stats, max_items=20)
+
+        # Step 3 — Decide mode
+        analytical = False
+        if isinstance(stats, dict):
+            stats_type = stats.get("type")
+            complex_types = {
+                "trend_stats",
+                "anomaly_stats",
+                "forecast_context",
+                "product_region_month_stats",
+                "region_consistency",
+            }
+            if stats_type in complex_types:
+                analytical = True
+
+        if is_analytical_query(question):
             analytical = True
 
-    if is_analytical_query(question):
-        analytical = True
+        # Step 4 — Summarize history
+        summarize_history_if_needed()
 
-    # Step 4 — Summarize history
-    summarize_history_if_needed()
+        # Step 5 — Build prompt
+        prompt = build_unified_prompt(question, stats, analytical_mode=analytical)
 
-    # Step 5 — Build prompt
-    prompt = build_unified_prompt(question, stats, analytical_mode=analytical)
-
-    # Step 6 — Call Groq LLM
-    try:
+        # Step 6 — Call Groq LLM
         client = get_groq_client()
+        print("Groq client initialized")
+
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
@@ -195,13 +200,22 @@ def run_query(question: str) -> str:
         )
 
         answer = response.choices[0].message["content"]
+        print("Groq response received")
 
         # Step 7 — Save turn
         st.session_state.chat_history.append(
-            {"user": question, "assistant": answer}
+            {"user": question, "assistant": answer, "stats": stats}
         )
 
         return answer
 
     except Exception as e:
-        return f"Error running Groq query: {e}"
+        error_msg = f"Error running Groq query: {e}"
+        print(error_msg)
+
+        # Surface error in UI
+        st.session_state.chat_history.append(
+            {"user": question, "assistant": error_msg, "stats": None}
+        )
+
+        return error_msg
