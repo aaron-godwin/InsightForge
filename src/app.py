@@ -137,7 +137,9 @@ elif page == "AI Assistant":
         "InsightForge will use your full RAG pipeline to retrieve relevant context and generate insights."
     )
 
+    # -----------------------------------------------------
     # Chat history display
+    # -----------------------------------------------------
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
 
     for turn in st.session_state.chat_history:
@@ -170,14 +172,18 @@ elif page == "AI Assistant":
 
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # -----------------------------------------------------
     # User input
+    # -----------------------------------------------------
     user_question = st.text_area(
         "Your question:",
         placeholder="e.g., Why did sales drop in Q3 in the West region?",
         height=120,
     )
 
+    # -----------------------------------------------------
     # Suggested questions
+    # -----------------------------------------------------
     st.subheader("Suggested questions")
     suggestions = [
         "Which region is performing the best this year?",
@@ -194,7 +200,9 @@ elif page == "AI Assistant":
                 run_query(s)
             st.session_state["_trigger_rerun"] = True
 
+    # -----------------------------------------------------
     # Run analysis button
+    # -----------------------------------------------------
     if st.button("Run Analysis"):
         if not user_question.strip():
             st.warning("Please enter a question before running analysis.")
@@ -202,11 +210,10 @@ elif page == "AI Assistant":
             with st.spinner("Analyzing with RAG engine..."):
                 run_query(user_question)
             st.session_state["_trigger_rerun"] = True
-    print("Button pressed")
 
-# ---------------------------------------------------------
-# SAFE RERUN HANDLER — MUST BE AT TOP LEVEL
-# ---------------------------------------------------------
-if st.session_state.get("_trigger_rerun", False):
-    st.session_state["_trigger_rerun"] = False
-    st.rerun()
+    # -----------------------------------------------------
+    # SAFE RERUN HANDLER — MUST BE AT THE END OF THE PAGE
+    # -----------------------------------------------------
+    if st.session_state.get("_trigger_rerun", False):
+        st.session_state["_trigger_rerun"] = False
+        st.rerun()
