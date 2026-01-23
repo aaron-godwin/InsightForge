@@ -1,9 +1,34 @@
 import pandas as pd
 
+
 class InsightRetriever:
-    def __init__(self, df, kb):
+    def __init__(self, df: pd.DataFrame, kb):
         self.df = df
         self.kb = kb
+
+        # Ensure Month exists for all time-based logic
+        self._ensure_month_column()
+
+        # -------------------------------------------------
+        # Precomputed aggregates (for fast, consistent stats)
+        # -------------------------------------------------
+        self.region_totals = (
+            self.df.groupby("Region")["Sales"].sum().sort_values(ascending=False).to_dict()
+        )
+
+        self.product_totals = (
+            self.df.groupby("Product")["Sales"].sum().sort_values(ascending=False).to_dict()
+        )
+
+        self.monthly_sales = (
+            self.df.groupby("Month")["Sales"].sum().sort_index().to_dict()
+        )
+
+        self.product_region_month = (
+            self.df.groupby(["Product", "Region", "Month"])["Sales"]
+            .sum()
+            .reset_index()
+        )
 
     # ---------------------------------------------------------
     # Core helpers
@@ -21,15 +46,20 @@ class InsightRetriever:
         subset = self.df[self.df["Product"] == product]
 
         if subset.empty:
-            return f"No data found for product '{product}'."
+            return {
+                "type": "product_stats",
+                "message": f"No data found for product '{product}'.",
+            }
 
         return {
             "type": "product_stats",
             "product": product,
-            "total_sales": subset["Sales"].sum(),
-            "avg_sales": subset["Sales"].mean(),
-            "max_sale": subset["Sales"].max(),
-            "avg_satisfaction": subset["Customer_Satisfaction"].mean()
+            "total_sales": float(subset["Sales"].sum()),
+            "avg_sales": float(subset["Sales"].mean()),
+            "max_sale": float(subset["Sales"].max()),
+            "avg_satisfaction": float(subset["Customer_Satisfaction"].mean())
+            if "Customer_Satisfaction" in subset.columns
+            else None,
         }
 
     # ---------------------------------------------------------
@@ -39,32 +69,41 @@ class InsightRetriever:
         subset = self.df[self.df["Region"] == region]
 
         if subset.empty:
-            return f"No data found for region '{region}'."
+            return {
+                "type": "region_stats",
+                "message": f"No data found for region '{region}'.",
+            }
 
         return {
             "type": "region_stats",
             "region": region,
-            "total_sales": subset["Sales"].sum(),
-            "avg_sales": subset["Sales"].mean(),
-            "avg_satisfaction": subset["Customer_Satisfaction"].mean()
+            "total_sales": float(subset["Sales"].sum()),
+            "avg_sales": float(subset["Sales"].mean()),
+            "avg_satisfaction": float(subset["Customer_Satisfaction"].mean())
+            if "Customer_Satisfaction" in subset.columns
+            else None,
         }
 
     # ---------------------------------------------------------
     # Month-level statistics
     # ---------------------------------------------------------
     def get_monthly_stats(self, month):
-        self._ensure_month_column()
         subset = self.df[self.df["Month"] == month]
 
         if subset.empty:
-            return f"No data found for month '{month}'."
+            return {
+                "type": "month_stats",
+                "message": f"No data found for month '{month}'.",
+            }
 
         return {
             "type": "month_stats",
             "month": str(month),
-            "total_sales": subset["Sales"].sum(),
-            "avg_sales": subset["Sales"].mean(),
-            "avg_satisfaction": subset["Customer_Satisfaction"].mean()
+            "total_sales": float(subset["Sales"].sum()),
+            "avg_sales": float(subset["Sales"].mean()),
+            "avg_satisfaction": float(subset["Customer_Satisfaction"].mean())
+            if "Customer_Satisfaction" in subset.columns
+            else None,
         }
 
     # ---------------------------------------------------------
@@ -74,14 +113,19 @@ class InsightRetriever:
         subset = self.df[self.df["Customer_Age"] == age_value]
 
         if subset.empty:
-            return f"No data found for age '{age_value}'."
+            return {
+                "type": "age_stats",
+                "message": f"No data found for age '{age_value}'.",
+            }
 
         return {
             "type": "age_stats",
             "age": age_value,
-            "total_sales": subset["Sales"].sum(),
-            "avg_sales": subset["Sales"].mean(),
-            "avg_satisfaction": subset["Customer_Satisfaction"].mean()
+            "total_sales": float(subset["Sales"].sum()),
+            "avg_sales": float(subset["Sales"].mean()),
+            "avg_satisfaction": float(subset["Customer_Satisfaction"].mean())
+            if "Customer_Satisfaction" in subset.columns
+            else None,
         }
 
     # ---------------------------------------------------------
@@ -91,24 +135,27 @@ class InsightRetriever:
         subset = self.df[self.df["Customer_Gender"] == gender_value]
 
         if subset.empty:
-            return f"No data found for gender '{gender_value}'."
+            return {
+                "type": "gender_stats",
+                "message": f"No data found for gender '{gender_value}'.",
+            }
 
         return {
             "type": "gender_stats",
             "gender": gender_value,
-            "total_sales": subset["Sales"].sum(),
-            "avg_sales": subset["Sales"].mean(),
-            "avg_satisfaction": subset["Customer_Satisfaction"].mean()
+            "total_sales": float(subset["Sales"].sum()),
+            "avg_sales": float(subset["Sales"].mean()),
+            "avg_satisfaction": float(subset["Customer_Satisfaction"].mean())
+            if "Customer_Satisfaction" in subset.columns
+            else None,
         }
 
     # ---------------------------------------------------------
     # Product × Region × Month analysis
     # ---------------------------------------------------------
     def get_product_region_month_stats(self):
-        self._ensure_month_column()
         grouped = (
-            self.df
-            .groupby(["Product", "Region", "Month"])["Sales"]
+            self.df.groupby(["Product", "Region", "Month"])["Sales"]
             .sum()
             .reset_index()
         )
@@ -126,19 +173,15 @@ class InsightRetriever:
 
         return {
             "type": "product_region_month_stats",
-            "product_region_month_sales": result
+            "product_region_month_sales": result,
         }
 
     # ---------------------------------------------------------
     # Trend detection (increasing / decreasing / flat)
     # ---------------------------------------------------------
     def get_trend_stats(self):
-        self._ensure_month_column()
-
-        # Aggregate total sales per month
         monthly = (
-            self.df
-            .groupby("Month")["Sales"]
+            self.df.groupby("Month")["Sales"]
             .sum()
             .sort_index()
         )
@@ -147,12 +190,11 @@ class InsightRetriever:
             return {
                 "type": "trend_stats",
                 "trend": "insufficient_data",
-                "monthly_sales": monthly.to_dict()
+                "monthly_sales": monthly.to_dict(),
             }
 
-        # Simple trend: compare first and last
-        first = monthly.iloc[0]
-        last = monthly.iloc[-1]
+        first = float(monthly.iloc[0])
+        last = float(monthly.iloc[-1])
 
         if last > first * 1.05:
             trend = "increasing"
@@ -164,18 +206,15 @@ class InsightRetriever:
         return {
             "type": "trend_stats",
             "trend": trend,
-            "monthly_sales": monthly.to_dict()
+            "monthly_sales": {k: float(v) for k, v in monthly.to_dict().items()},
         }
 
     # ---------------------------------------------------------
     # Anomaly detection (simple z-score on monthly totals)
     # ---------------------------------------------------------
     def get_anomaly_stats(self):
-        self._ensure_month_column()
-
         monthly = (
-            self.df
-            .groupby("Month")["Sales"]
+            self.df.groupby("Month")["Sales"]
             .sum()
             .sort_index()
         )
@@ -184,12 +223,12 @@ class InsightRetriever:
             return {
                 "type": "anomaly_stats",
                 "anomalies": [],
-                "monthly_sales": monthly.to_dict()
+                "monthly_sales": {k: float(v) for k, v in monthly.to_dict().items()},
             }
 
         series = monthly.astype(float)
-        mean = series.mean()
-        std = series.std()
+        mean = float(series.mean())
+        std = float(series.std())
 
         if std == 0:
             anomalies = []
@@ -204,28 +243,23 @@ class InsightRetriever:
         return {
             "type": "anomaly_stats",
             "anomalies": anomalies,
-            "monthly_sales": series.to_dict()
+            "monthly_sales": {k: float(v) for k, v in series.to_dict().items()},
         }
 
     # ---------------------------------------------------------
     # Forecasting hook (for Groq-powered forecasting)
     # ---------------------------------------------------------
-    
     def get_forecast_context(self, horizon_months: int = 3):
         """
-        Returns structured monthly sales history that the LLM (Groq) can use
+        Returns structured monthly sales history that the LLM can use
         to generate a natural-language forecast.
         """
-        self._ensure_month_column()
-
         monthly = (
-            self.df
-            .groupby("Month")["Sales"]
+            self.df.groupby("Month")["Sales"]
             .sum()
             .reset_index()
         )
 
-        # Sort chronologically
         monthly["Month"] = pd.PeriodIndex(monthly["Month"], freq="M").astype(str)
         monthly = monthly.sort_values("Month")
 
@@ -236,41 +270,170 @@ class InsightRetriever:
             "monthly_sales": series.to_dict(),
             "horizon_months": horizon_months,
             "meta": {
-                "num_months": len(series)
-            }
+                "num_months": len(series),
+            },
         }
 
     # ---------------------------------------------------------
-    # Generic retrieval for LLM queries
+    # Region performance (ranking regions by total sales)
     # ---------------------------------------------------------
-    def retrieve(self, query):
-        query = query.lower()
-        self._ensure_month_column()
+    def get_region_performance(self):
+        ranked = sorted(
+            self.region_totals.items(), key=lambda x: x[1], reverse=True
+        )
+        top_region = ranked[0][0] if ranked else None
 
-        # Product queries
-        for product in self.df["Product"].unique():
-            if product.lower() in query:
-                return self.get_product_stats(product)
+        return {
+            "type": "region_performance",
+            "region_totals": {k: float(v) for k, v in self.region_totals.items()},
+            "ranked": [(r, float(v)) for r, v in ranked],
+            "top_region": top_region,
+        }
 
-        # Region queries
-        for region in self.df["Region"].unique():
-            if region.lower() in query:
-                return self.get_region_stats(region)
+    # ---------------------------------------------------------
+    # Product performance (ranking products by total sales)
+    # ---------------------------------------------------------
+    def get_product_performance(self):
+        ranked = sorted(
+            self.product_totals.items(), key=lambda x: x[1], reverse=True
+        )
+        top_product = ranked[0][0] if ranked else None
 
-        # Age queries (Customer_Age) – specific ages
-        if "Customer_Age" in self.df.columns:
-            for age in self.df["Customer_Age"].dropna().unique():
-                if str(age).lower() in query:
-                    return self.get_age_stats(age)
+        return {
+            "type": "product_performance",
+            "product_totals": {k: float(v) for k, v in self.product_totals.items()},
+            "ranked": [(p, float(v)) for p, v in ranked],
+            "top_product": top_product,
+        }
 
-        # Gender queries (Customer_Gender)
-        if "Customer_Gender" in self.df.columns:
-            for gender in self.df["Customer_Gender"].dropna().unique():
-                if str(gender).lower() in query:
-                    return self.get_gender_stats(gender)
+    # ---------------------------------------------------------
+    # Region consistency / volatility
+    # ---------------------------------------------------------
+    def get_region_consistency(self):
+        region_volatility = (
+            self.df.groupby("Region")["Sales"].std().sort_values().to_dict()
+        )
+        volatility = {k: float(v) for k, v in region_volatility.items()}
 
-        # Age summary queries (no specific age mentioned)
-        if "age" in query or "ages" in query or "age group" in query:
+        if not volatility:
+            return {
+                "type": "region_consistency",
+                "volatility": {},
+                "most_consistent": None,
+                "most_volatile": None,
+            }
+
+        most_consistent = min(volatility, key=volatility.get)
+        most_volatile = max(volatility, key=volatility.get)
+
+        return {
+            "type": "region_consistency",
+            "volatility": volatility,
+            "most_consistent": most_consistent,
+            "most_volatile": most_volatile,
+        }
+
+    # ---------------------------------------------------------
+    # Generic retrieval for LLM queries (new, clean routing)
+    # ---------------------------------------------------------
+    def retrieve(self, query: str):
+        q = query.lower().strip()
+
+        # 1. Region performance (recommended questions)
+        if "region" in q and (
+            "best" in q
+            or "top" in q
+            or "strongest" in q
+            or "performing" in q
+            or "leader" in q
+        ):
+            return self.get_region_performance()
+
+        # 2. Product performance
+        if "product" in q and (
+            "best" in q
+            or "top" in q
+            or "strongest" in q
+            or "performing" in q
+            or "leader" in q
+        ):
+            return self.get_product_performance()
+
+        # 3. Trend questions
+        if (
+            "trend" in q
+            or "over time" in q
+            or "how has" in q
+            or "trajectory" in q
+            or "increasing" in q
+            or "decreasing" in q
+            or ("sales" in q and "history" in q)
+        ):
+            return self.get_trend_stats()
+
+        # 4. Anomaly detection
+        if (
+            "anomaly" in q
+            or "anomalies" in q
+            or "outlier" in q
+            or "outliers" in q
+            or "unusual" in q
+            or "unexpected" in q
+            or "spike" in q
+            or "drop" in q
+        ):
+            return self.get_anomaly_stats()
+
+        # 5. Forecasting
+        if (
+            "forecast" in q
+            or "predict" in q
+            or "projection" in q
+            or "project" in q
+            or "next month" in q
+            or "next quarter" in q
+            or ("future" in q and "sales" in q)
+            or ("expected" in q and "sales" in q)
+            or ("outlook" in q and "sales" in q)
+        ):
+            return self.get_forecast_context(horizon_months=3)
+
+        # 6. Product × Region × Month analysis
+        if (
+            "product-region" in q
+            or "product region" in q
+            or "product–region" in q
+            or "product by region" in q
+            or "region by product" in q
+            or ("product" in q and "region" in q and "performance" in q)
+            or ("product" in q and "region" in q and "over time" in q)
+            or ("product" in q and "region" in q and "trend" in q)
+            or ("shift" in q and "region" in q)
+            or ("shifts" in q and "region" in q)
+            or ("month-to-month" in q and "region" in q)
+            or ("month to month" in q and "region" in q)
+            or ("strongest" in q and "region" in q)
+            or ("weakest" in q and "region" in q)
+            or ("compare" in q and "region" in q and "product" in q)
+        ):
+            return self.get_product_region_month_stats()
+
+        # 7. Region consistency / stability
+        if (
+            "consistent" in q
+            or "consistency" in q
+            or "month-to-month" in q
+            or "month to month" in q
+            or ("stable" in q and "region" in q)
+            or ("stability" in q and "region" in q)
+            or ("region" in q and "over time" in q)
+            or ("region" in q and "variance" in q)
+            or ("region" in q and "volatility" in q)
+        ):
+            return self.get_region_consistency()
+
+        # 8. Age summary queries (no specific age mentioned)
+        if "age" in q or "ages" in q or "age group" in q:
             if "Customer_Age" in self.df.columns:
                 age_stats = {}
                 for age in self.df["Customer_Age"].dropna().unique():
@@ -278,127 +441,39 @@ class InsightRetriever:
                     age_stats[age] = float(subset["Sales"].sum())
                 return {
                     "type": "age_sales_summary",
-                    "age_sales_summary": age_stats
+                    "age_sales_summary": age_stats,
                 }
 
-        # Region consistency / stability queries
-        if (
-            "consistent" in query
-            or "consistency" in query
-            or "month-to-month" in query
-            or "month to month" in query
-            or ("stable" in query and "region" in query)
-            or ("stability" in query and "region" in query)
-            or ("region" in query and "over time" in query)
-            or ("region" in query and "performance" in query and "over time" in query)
-            or ("region" in query and "variance" in query)
-            or ("region" in query and "volatility" in query)
-        ):
-            consistency_stats = {}
-            for region in self.df["Region"].unique():
-                region_df = self.df[self.df["Region"] == region]
-                monthly = (
-                    region_df.groupby("Month")["Sales"]
-                    .sum()
-                    .reset_index()
-                )
-                monthly["Month"] = pd.PeriodIndex(monthly["Month"], freq="M").astype(str)
-                monthly = monthly.sort_values("Month")
-                monthly_totals = monthly["Sales"].astype(float).tolist()
+        # 9. Product queries (specific product mention)
+        for product in self.df["Product"].unique():
+            if product.lower() in q:
+                return self.get_product_stats(product)
 
-                if len(monthly_totals) > 1:
-                    std_dev = pd.Series(monthly_totals).std()
-                    consistency_stats[region] = {
-                        "monthly_totals": monthly_totals,
-                        "std_dev": float(std_dev)
-                    }
+        # 10. Region queries (specific region mention)
+        for region in self.df["Region"].unique():
+            if region.lower() in q:
+                return self.get_region_stats(region)
 
-            return {"type": "region_consistency", "region_consistency": consistency_stats}
+        # 11. Age queries (specific age)
+        if "Customer_Age" in self.df.columns:
+            for age in self.df["Customer_Age"].dropna().unique():
+                if str(age).lower() in q:
+                    return self.get_age_stats(age)
 
-        # Product × Region × Month analysis
-        if (
-            # direct phrasing
-            "product-region" in query
-            or "product region" in query
-            or "product–region" in query
-            or "product by region" in query
-            or "region by product" in query
+        # 12. Gender queries
+        if "Customer_Gender" in self.df.columns:
+            for gender in self.df["Customer_Gender"].dropna().unique():
+                if str(gender).lower() in q:
+                    return self.get_gender_stats(gender)
 
-            # performance phrasing
-            or ("product" in query and "region" in query and "performance" in query)
-            or ("product" in query and "region" in query and "over time" in query)
-            or ("product" in query and "region" in query and "trend" in query)
+        # 13. Month queries (explicit month mention)
+        for month in self.df["Month"].unique():
+            m_str = str(month).lower()
+            if m_str in q:
+                return self.get_monthly_stats(month)
 
-            # shift / change phrasing
-            or ("shift" in query and "region" in query)
-            or ("shifts" in query and "region" in query)
-            or ("month-to-month" in query and "region" in query)
-            or ("month to month" in query and "region" in query)
-
-            # strongest / weakest phrasing
-            or ("strongest" in query and "region" in query)
-            or ("weakest" in query and "region" in query)
-
-            # comparison phrasing
-            or ("compare" in query and "region" in query and "product" in query)
-        ):
-            return self.get_product_region_month_stats()
-
-
-        # Trend detection
-        if (
-            "trend" in query
-            or "increasing" in query
-            or "decreasing" in query
-            or "seasonal" in query
-            or "trajectory" in query
-            or "long-term" in query
-            or "long term" in query
-            or ("sales" in query and "over time" in query)
-            or ("historical" in query and "sales" in query)
-            or ("sales" in query and "direction" in query)
-            or ("sales" in query and "movement" in query)
-        ):
-            return self.get_trend_stats()
-
-        # Anomaly detection
-        if (
-            "anomaly" in query
-            or "anomalies" in query
-            or "outlier" in query
-            or "outliers" in query
-            or "unusual" in query
-            or "unexpected" in query
-            or "irregular" in query
-            or ("deviate" in query and "month" in query)
-            or ("deviates" in query and "month" in query)
-            or ("deviation" in query and "month" in query)
-            or ("significantly" in query and "month" in query)
-            or ("norm" in query and "month" in query)
-            or ("stand out" in query and "month" in query)
-        ):
-            return self.get_anomaly_stats()
-
-        # Forecasting
-        if (
-            "forecast" in query
-            or "predict" in query
-            or "projection" in query
-            or "project" in query
-            or "next month" in query
-            or "next quarter" in query
-            or "future" in query and "sales" in query
-            or "expected" in query and "sales" in query
-            or "outlook" in query and "sales" in query
-        ):
-            # Horizon is fixed for now; can be parsed from query later
-            return self.get_forecast_context(horizon_months=3)
-
-        # Month queries (explicit month mention)
-        if "month" in query or any(str(m).lower() in query for m in self.df["Month"].unique()):
-            for month in self.df["Month"].unique():
-                m_str = str(month).lower()
-                if m_str in query:
-                    return self.get_monthly_stats(month)
-
-        return "No matching statistics found for your query."
+        # 14. Fallback
+        return {
+            "type": "no_stats",
+            "message": "No matching statistics found for your query.",
+        }
