@@ -3,6 +3,8 @@ from groq import Groq
 from load_data import load_data_and_kb
 from retriever import InsightRetriever
 
+print("run_query() was called")
+
 # ---------------------------------------------------------
 # Initialization
 # ---------------------------------------------------------

@@ -202,6 +202,7 @@ elif page == "AI Assistant":
             with st.spinner("Analyzing with RAG engine..."):
                 run_query(user_question)
             st.session_state["_trigger_rerun"] = True
+    print("Button pressed")
 
 # ---------------------------------------------------------
 # SAFE RERUN HANDLER — MUST BE AT TOP LEVEL
