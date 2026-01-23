@@ -3,7 +3,7 @@ from load_data import load_data_and_kb
 from visualization import InsightVisualizer
 from run_query import run_query  # AI Assistant integration
 
-# force git update
+# force Streamlit to reload latest commit
 
 st.set_page_config(page_title="InsightForge BI Assistant", layout="wide")
 
