@@ -92,7 +92,7 @@ Conversation to summarize:
                 messages=[{"role": "user", "content": summary_prompt}],
                 temperature=0.2,
             )
-            summary = response.choices[0].message["content"]
+            summary = response.choices[0].message.content   # FIXED
             st.session_state.conversation_summary = summary
         except Exception as e:
             print(f"Summarization failed: {e}")
@@ -199,7 +199,7 @@ def run_query(question: str) -> str:
             temperature=0.2,
         )
 
-        answer = response.choices[0].message["content"]
+        answer = response.choices[0].message.content   # FIXED
         print("Groq response received")
 
         # Step 7 — Save turn
