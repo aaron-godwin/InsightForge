@@ -272,3 +272,5 @@ def run_query(question: str) -> str:
 
     except Exception as e:
         return f"Error running Groq query: {e}"
+
+print("run_query was called")
